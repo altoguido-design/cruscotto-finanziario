@@ -23,10 +23,6 @@ st.set_page_config(
 
 st.title("📈 Dashboard Finanziaria Real-Time")
 
-st.success("VERSIONE TEST GRAFICI - 28/09/2026")
-
-st.write("TEST: Streamlit sta eseguendo il nuovo codice")
-
 st.write("Nasdaq, VIX e Bitcoin - confronto percentuale e paniere ponderato.")
 
 st_autorefresh(
