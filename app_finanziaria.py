@@ -1,4 +1,3 @@
-
 import os
 from datetime import datetime, timedelta
 
@@ -23,7 +22,9 @@ st.set_page_config(
 
 st.title("📈 Dashboard Finanziaria Real-Time")
 
-st.write("Nasdaq, VIX e Bitcoin - confronto percentuale e paniere ponderato.")
+st.write(
+    "Nasdaq, VIX e Bitcoin - confronto percentuale e paniere ponderato."
+)
 
 st_autorefresh(
     interval=300000,
@@ -71,15 +72,22 @@ def fetch_current_prices():
                 ).dropna()
 
                 if len(close) > 0:
-                    prices[name] = float(close.iloc[-1])
+
+                    prices[name] = float(
+                        close.iloc[-1]
+                    )
+
                     continue
 
             # Fallback
             try:
+
                 prices[name] = float(
                     obj.fast_info["last_price"]
                 )
+
             except Exception:
+
                 prices[name] = None
 
         except Exception as e:
@@ -112,6 +120,7 @@ def load_history():
             )
 
             if data.empty:
+
                 return pd.DataFrame()
 
             close = pd.to_numeric(
@@ -120,10 +129,12 @@ def load_history():
             ).dropna()
 
             if close.empty:
+
                 return pd.DataFrame()
 
             # Rimozione timezone
             if getattr(close.index, "tz", None) is not None:
+
                 close.index = close.index.tz_localize(None)
 
             # Arrotondamento
@@ -158,6 +169,7 @@ def load_history():
     df = df.tail(20).copy()
 
     if df.empty:
+
         return pd.DataFrame()
 
 
@@ -175,9 +187,12 @@ def load_history():
         ).dropna()
 
         if values.empty:
+
             return pd.DataFrame()
 
-        base[name] = float(values.iloc[0])
+        base[name] = float(
+            values.iloc[0]
+        )
 
 
     # ========================================================
@@ -185,50 +200,59 @@ def load_history():
     # ========================================================
 
     df["Nasdaq_Pct"] = (
+
         (
             df["Nasdaq"] -
             base["Nasdaq"]
         )
         /
         base["Nasdaq"]
+
     ) * 100
 
 
     df["VIX_Pct"] = (
+
         (
             df["VIX"] -
             base["VIX"]
         )
         /
         base["VIX"]
+
     ) * 100
 
 
     df["BTC_Pct"] = (
+
         (
             df["BTC"] -
             base["BTC"]
         )
         /
         base["BTC"]
+
     ) * 100
 
 
     # ========================================================
-    # PANIERЕ
+    # PANIERE
     # ========================================================
 
     df["Indice_Ponderato"] = (
 
-        df["Nasdaq_Pct"] * WEIGHTS["Nasdaq"]
+        df["Nasdaq_Pct"] *
+        WEIGHTS["Nasdaq"]
 
         +
 
-        df["VIX_Pct"] * WEIGHTS["VIX"]
+        df["VIX_Pct"] *
+        WEIGHTS["VIX"]
 
         +
 
-        df["BTC_Pct"] * WEIGHTS["BTC"]
+        df["BTC_Pct"] *
+        WEIGHTS["BTC"]
     )
 
 
@@ -319,6 +343,7 @@ if (
         })
 
         st.session_state.base_values = {
+
             name: float(prices[name])
             for name in TICKERS
         }
@@ -333,8 +358,7 @@ if (
 
         }
 
-        # ATTENZIONE:
-        # recuperiamo le basi direttamente dallo storico
+        # Recuperiamo le basi direttamente dallo storico
         # per avere una base reale.
 
         raw = {}
@@ -354,9 +378,13 @@ if (
                 ).dropna()
 
                 if not close.empty:
-                    raw[name] = float(close.iloc[0])
+
+                    raw[name] = float(
+                        close.iloc[0]
+                    )
 
             except Exception:
+
                 pass
 
 
@@ -367,6 +395,7 @@ if (
         else:
 
             st.session_state.base_values = {
+
                 name: float(prices[name])
                 for name in TICKERS
             }
@@ -387,25 +416,43 @@ base = st.session_state.base_values
 # ============================================================
 
 nasdaq_pct = (
-    (float(prices["Nasdaq"]) - float(base["Nasdaq"]))
-    / float(base["Nasdaq"])
+
+    (
+        float(prices["Nasdaq"]) -
+        float(base["Nasdaq"])
+    )
+    /
+    float(base["Nasdaq"])
+
 ) * 100
 
 
 vix_pct = (
-    (float(prices["VIX"]) - float(base["VIX"]))
-    / float(base["VIX"])
+
+    (
+        float(prices["VIX"]) -
+        float(base["VIX"])
+    )
+    /
+    float(base["VIX"])
+
 ) * 100
 
 
 btc_pct = (
-    (float(prices["BTC"]) - float(base["BTC"]))
-    / float(base["BTC"])
+
+    (
+        float(prices["BTC"]) -
+        float(base["BTC"])
+    )
+    /
+    float(base["BTC"])
+
 ) * 100
 
 
 # ============================================================
-# CALCOLO PANIERЕ
+# CALCOLO PANIERE
 # ============================================================
 
 indice_ponderato = (
@@ -433,11 +480,17 @@ new_row = pd.DataFrame({
 
     "Timestamp": [now],
 
-    "Nasdaq_Pct": [float(nasdaq_pct)],
+    "Nasdaq_Pct": [
+        float(nasdaq_pct)
+    ],
 
-    "VIX_Pct": [float(vix_pct)],
+    "VIX_Pct": [
+        float(vix_pct)
+    ],
 
-    "BTC_Pct": [float(btc_pct)],
+    "BTC_Pct": [
+        float(btc_pct)
+    ],
 
     "Indice_Ponderato": [
         float(indice_ponderato)
@@ -466,9 +519,16 @@ if not history.empty:
     last_time = history["Timestamp"].iloc[-1]
 
     same_minute = (
-        last_time.strftime("%Y-%m-%d %H:%M")
+
+        last_time.strftime(
+            "%Y-%m-%d %H:%M"
+        )
+
         ==
-        now.strftime("%Y-%m-%d %H:%M")
+
+        now.strftime(
+            "%Y-%m-%d %H:%M"
+        )
     )
 
 else:
@@ -499,10 +559,12 @@ history = history.tail(100).copy()
 # ============================================================
 
 for col in [
+
     "Nasdaq_Pct",
     "VIX_Pct",
     "BTC_Pct",
     "Indice_Ponderato"
+
 ]:
 
     history[col] = pd.to_numeric(
@@ -557,33 +619,76 @@ plot_df = history.copy()
 
 # Lista pura di datetime
 x_values = [
+
     pd.Timestamp(x).to_pydatetime()
+
     for x in plot_df["Timestamp"]
+
 ]
 
 
 nasdaq_values = [
+
     float(x)
+
     for x in plot_df["Nasdaq_Pct"]
+
 ]
 
 
 vix_values = [
+
     float(x)
+
     for x in plot_df["VIX_Pct"]
+
 ]
 
 
 btc_values = [
+
     float(x)
+
     for x in plot_df["BTC_Pct"]
+
 ]
 
 
 basket_values = [
+
     float(x)
+
     for x in plot_df["Indice_Ponderato"]
+
 ]
+
+
+# ============================================================
+# CONFIGURAZIONE COMUNE GRAFICI
+# ============================================================
+
+# Queste impostazioni rendono i grafici:
+#
+# - non trascinabili
+# - non zoomabili
+# - non ridimensionabili con pinch
+# - non modificabili con doppio click
+# - con assi fissi
+#
+# L'HOVER rimane invece attivo.
+
+
+PLOT_CONFIG = {
+
+    "displayModeBar": False,
+
+    "scrollZoom": False,
+
+    "doubleClick": False,
+
+    "showTips": True
+
+}
 
 
 # ============================================================
@@ -599,56 +704,95 @@ fig1 = go.Figure()
 
 
 fig1.add_trace(
+
     go.Scatter(
+
         x=x_values,
+
         y=nasdaq_values,
+
         mode="lines+markers",
+
         name="Nasdaq 100",
+
         line={
             "color": "#636EFA",
             "width": 4
         },
+
         marker={
             "size": 7
         },
-        connectgaps=True
+
+        connectgaps=True,
+
+        # Hover attivo
+        hoverinfo="x+y"
+
     )
+
 )
 
 
 fig1.add_trace(
+
     go.Scatter(
+
         x=x_values,
+
         y=vix_values,
+
         mode="lines+markers",
+
         name="VIX",
+
         line={
             "color": "#EF553B",
             "width": 4
         },
+
         marker={
             "size": 7
         },
-        connectgaps=True
+
+        connectgaps=True,
+
+        # Hover attivo
+        hoverinfo="x+y"
+
     )
+
 )
 
 
 fig1.add_trace(
+
     go.Scatter(
+
         x=x_values,
+
         y=btc_values,
+
         mode="lines+markers",
+
         name="Bitcoin",
+
         line={
             "color": "#00CC96",
             "width": 4
         },
+
         marker={
             "size": 7
         },
-        connectgaps=True
+
+        connectgaps=True,
+
+        # Hover attivo
+        hoverinfo="x+y"
+
     )
+
 )
 
 
@@ -657,33 +801,54 @@ fig1.update_layout(
     height=500,
 
     xaxis={
+
         "title": "Ora",
-        "type": "date"
+
+        "type": "date",
+
+        # BLOCCA L'ASSE X
+        "fixedrange": True
+
     },
 
     yaxis={
+
         "title": "Variazione %",
+
         "zeroline": True,
-        "showgrid": True
+
+        "showgrid": True,
+
+        # BLOCCA L'ASSE Y
+        "fixedrange": True
+
     },
 
-    hovermode="x unified",
+    # Impedisce il trascinamento
+    "dragmode": False,
 
-    template="plotly_white",
+    # Mantiene l'hover
+    "hovermode": "x unified",
 
-    legend={
+    "template": "plotly_white",
+
+    "legend": {
+
         "orientation": "h"
+
     }
+
 )
 
 
 st.plotly_chart(
+
     fig1,
+
     use_container_width=True,
-    config={
-        "displayModeBar": False,
-        "scrollZoom": False
-    }
+
+    config=PLOT_CONFIG
+
 )
 
 
@@ -700,20 +865,33 @@ fig2 = go.Figure()
 
 
 fig2.add_trace(
+
     go.Scatter(
+
         x=x_values,
+
         y=basket_values,
+
         mode="lines+markers",
+
         name="Paniere",
+
         line={
             "color": "#00CC96",
             "width": 5
         },
+
         marker={
             "size": 8
         },
-        connectgaps=True
+
+        connectgaps=True,
+
+        # Hover attivo
+        hoverinfo="x+y"
+
     )
+
 )
 
 
@@ -722,29 +900,48 @@ fig2.update_layout(
     height=450,
 
     xaxis={
+
         "title": "Ora",
-        "type": "date"
+
+        "type": "date",
+
+        # BLOCCA L'ASSE X
+        "fixedrange": True
+
     },
 
     yaxis={
+
         "title": "Indice %",
+
         "zeroline": True,
-        "showgrid": True
+
+        "showgrid": True,
+
+        # BLOCCA L'ASSE Y
+        "fixedrange": True
+
     },
 
-    hovermode="x unified",
+    # Impedisce trascinamento
+    "dragmode": False,
 
-    template="plotly_white"
+    # Mantiene hover
+    "hovermode": "x unified",
+
+    "template": "plotly_white"
+
 )
 
 
 st.plotly_chart(
+
     fig2,
+
     use_container_width=True,
-    config={
-        "displayModeBar": False,
-        "scrollZoom": False
-    }
+
+    config=PLOT_CONFIG
+
 )
 
 
@@ -765,43 +962,60 @@ with st.expander("🔧 Controllo tecnico"):
     st.write("### Percentuali correnti")
 
     st.write({
+
         "Nasdaq": nasdaq_pct,
+
         "VIX": vix_pct,
+
         "BTC": btc_pct
+
     })
 
     st.write("### Calcolo paniere")
 
     st.write(
+
         f"Nasdaq × 45% = "
         f"{nasdaq_pct * 0.45:.6f}"
+
     )
 
     st.write(
+
         f"VIX × 10% = "
         f"{vix_pct * 0.10:.6f}"
+
     )
 
     st.write(
+
         f"BTC × 45% = "
         f"{btc_pct * 0.45:.6f}"
+
     )
 
     st.write(
+
         f"Totale = "
         f"{indice_ponderato:.6f}%"
+
     )
 
     st.write("### Dati passati al grafico")
 
     st.dataframe(
+
         history.tail(20),
+
         use_container_width=True
+
     )
 
 
 st.write("---")
 
+
 st.caption(
     "Dashboard aggiornata automaticamente ogni 5 minuti."
 )
+
