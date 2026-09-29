@@ -12,7 +12,7 @@ from streamlit_autorefresh import st_autorefresh
 
 
 # ============================================================
-# CONFIGURAZIONE
+# CONFIGURAZIONE STREAMLIT
 # ============================================================
 
 st.set_page_config(
@@ -26,11 +26,20 @@ st.write(
     "Nasdaq, VIX e Bitcoin - confronto percentuale e paniere ponderato."
 )
 
+
+# ============================================================
+# AGGIORNAMENTO AUTOMATICO
+# ============================================================
+
 st_autorefresh(
     interval=300000,
     key="refresh"
 )
 
+
+# ============================================================
+# PARAMETRI
+# ============================================================
 
 TICKERS = {
     "Nasdaq": "NQ=F",
@@ -38,11 +47,63 @@ TICKERS = {
     "BTC": "BTC-USD"
 }
 
+
 WEIGHTS = {
     "Nasdaq": 0.45,
     "VIX": 0.10,
     "BTC": 0.45
 }
+
+
+# ============================================================
+# CSS PER BLOCCARE LE INTERAZIONI TOUCH DEL GRAFICO
+# ============================================================
+#
+# IMPORTANTE:
+#
+# touch-action: pan-y
+#
+# consente di scorrere normalmente la pagina verso l'alto
+# e verso il basso sullo smartphone, ma impedisce al browser
+# di utilizzare il grafico per pan orizzontale e pinch-zoom.
+#
+# L'hover/touch di Plotly rimane invece disponibile.
+#
+# La regola viene applicata solo al contenitore del grafico.
+# ============================================================
+
+st.markdown(
+    """
+    <style>
+
+    /* ======================================================
+       BLOCCO TOUCH GRAFICI PLOTLY
+       ====================================================== */
+
+    .js-plotly-plot,
+    .plotly,
+    .plotly-graph-div {
+
+        touch-action: pan-y !important;
+
+        -webkit-user-select: none !important;
+        user-select: none !important;
+
+    }
+
+    /* Evita selezioni accidentali del testo durante
+       il trascinamento sullo smartphone */
+
+    .js-plotly-plot .plotly {
+
+        -webkit-touch-callout: none !important;
+
+    }
+
+    </style>
+    """,
+    unsafe_allow_html=True
+)
 
 
 # ============================================================
@@ -79,7 +140,10 @@ def fetch_current_prices():
 
                     continue
 
-            # Fallback
+            # ------------------------------------------------
+            # FALLBACK
+            # ------------------------------------------------
+
             try:
 
                 prices[name] = float(
@@ -132,12 +196,18 @@ def load_history():
 
                 return pd.DataFrame()
 
-            # Rimozione timezone
+            # ------------------------------------------------
+            # RIMOZIONE TIMEZONE
+            # ------------------------------------------------
+
             if getattr(close.index, "tz", None) is not None:
 
                 close.index = close.index.tz_localize(None)
 
-            # Arrotondamento
+            # ------------------------------------------------
+            # ARROTONDAMENTO
+            # ------------------------------------------------
+
             close.index = close.index.round("h")
 
             series[name] = close
@@ -162,7 +232,7 @@ def load_history():
 
     df = df.sort_index()
 
-    # Riempie i buchi
+    # Riempie eventuali buchi
     df = df.ffill().bfill()
 
     # Ultimi 20 punti
@@ -202,7 +272,8 @@ def load_history():
     df["Nasdaq_Pct"] = (
 
         (
-            df["Nasdaq"] -
+            df["Nasdaq"]
+            -
             base["Nasdaq"]
         )
         /
@@ -214,7 +285,8 @@ def load_history():
     df["VIX_Pct"] = (
 
         (
-            df["VIX"] -
+            df["VIX"]
+            -
             base["VIX"]
         )
         /
@@ -226,7 +298,8 @@ def load_history():
     df["BTC_Pct"] = (
 
         (
-            df["BTC"] -
+            df["BTC"]
+            -
             base["BTC"]
         )
         /
@@ -236,22 +309,25 @@ def load_history():
 
 
     # ========================================================
-    # PANIERE
+    # PANIERE PONDERATO
     # ========================================================
 
     df["Indice_Ponderato"] = (
 
-        df["Nasdaq_Pct"] *
+        df["Nasdaq_Pct"]
+        *
         WEIGHTS["Nasdaq"]
 
         +
 
-        df["VIX_Pct"] *
+        df["VIX_Pct"]
+        *
         WEIGHTS["VIX"]
 
         +
 
-        df["BTC_Pct"] *
+        df["BTC_Pct"]
+        *
         WEIGHTS["BTC"]
     )
 
@@ -283,6 +359,7 @@ def load_history():
             df["Indice_Ponderato"],
             errors="coerce"
         )
+
     })
 
 
@@ -290,7 +367,7 @@ def load_history():
 
 
 # ============================================================
-# CARICAMENTO
+# CARICAMENTO PREZZI
 # ============================================================
 
 prices = fetch_current_prices()
@@ -312,19 +389,24 @@ if not valid_prices:
 
 
 # ============================================================
-# STORICO
+# CARICAMENTO STORICO
 # ============================================================
 
 if (
     "base_values" not in st.session_state
-    or "history" not in st.session_state
+    or
+    "history" not in st.session_state
 ):
 
     historical = load_history()
 
+
+    # ========================================================
+    # FALLBACK
+    # ========================================================
+
     if historical.empty:
 
-        # Fallback
         now = datetime.now()
 
         historical = pd.DataFrame({
@@ -333,35 +415,54 @@ if (
                 now - timedelta(minutes=5)
             ],
 
-            "Nasdaq_Pct": [0.0],
+            "Nasdaq_Pct": [
+                0.0
+            ],
 
-            "VIX_Pct": [0.0],
+            "VIX_Pct": [
+                0.0
+            ],
 
-            "BTC_Pct": [0.0],
+            "BTC_Pct": [
+                0.0
+            ],
 
-            "Indice_Ponderato": [0.0]
+            "Indice_Ponderato": [
+                0.0
+            ]
+
         })
+
 
         st.session_state.base_values = {
 
             name: float(prices[name])
             for name in TICKERS
+
         }
 
+
     else:
+
+        # ----------------------------------------------------
+        # BASE PROVVISORIA
+        # ----------------------------------------------------
 
         st.session_state.base_values = {
 
             "Nasdaq": float(
                 historical["Nasdaq_Pct"].iloc[0] * 0 + 1
-            ),
+            )
 
         }
 
-        # Recuperiamo le basi direttamente dallo storico
-        # per avere una base reale.
+
+        # ----------------------------------------------------
+        # RECUPERO BASI REALI
+        # ----------------------------------------------------
 
         raw = {}
+
 
         for name, ticker in TICKERS.items():
 
@@ -388,6 +489,10 @@ if (
                 pass
 
 
+        # ----------------------------------------------------
+        # BASI
+        # ----------------------------------------------------
+
         if len(raw) == 3:
 
             st.session_state.base_values = raw
@@ -398,6 +503,7 @@ if (
 
                 name: float(prices[name])
                 for name in TICKERS
+
             }
 
 
@@ -412,13 +518,14 @@ base = st.session_state.base_values
 
 
 # ============================================================
-# CALCOLO CURRENT %
+# CALCOLO NASDAQ %
 # ============================================================
 
 nasdaq_pct = (
 
     (
-        float(prices["Nasdaq"]) -
+        float(prices["Nasdaq"])
+        -
         float(base["Nasdaq"])
     )
     /
@@ -427,10 +534,15 @@ nasdaq_pct = (
 ) * 100
 
 
+# ============================================================
+# CALCOLO VIX %
+# ============================================================
+
 vix_pct = (
 
     (
-        float(prices["VIX"]) -
+        float(prices["VIX"])
+        -
         float(base["VIX"])
     )
     /
@@ -439,10 +551,15 @@ vix_pct = (
 ) * 100
 
 
+# ============================================================
+# CALCOLO BTC %
+# ============================================================
+
 btc_pct = (
 
     (
-        float(prices["BTC"]) -
+        float(prices["BTC"])
+        -
         float(base["BTC"])
     )
     /
@@ -457,15 +574,22 @@ btc_pct = (
 
 indice_ponderato = (
 
-    float(nasdaq_pct) * 0.45
+    float(nasdaq_pct)
+    *
+    WEIGHTS["Nasdaq"]
 
     +
 
-    float(vix_pct) * 0.10
+    float(vix_pct)
+    *
+    WEIGHTS["VIX"]
 
     +
 
-    float(btc_pct) * 0.45
+    float(btc_pct)
+    *
+    WEIGHTS["BTC"]
+
 )
 
 
@@ -478,7 +602,9 @@ now = datetime.now()
 
 new_row = pd.DataFrame({
 
-    "Timestamp": [now],
+    "Timestamp": [
+        now
+    ],
 
     "Nasdaq_Pct": [
         float(nasdaq_pct)
@@ -495,6 +621,7 @@ new_row = pd.DataFrame({
     "Indice_Ponderato": [
         float(indice_ponderato)
     ]
+
 })
 
 
@@ -511,8 +638,9 @@ history["Timestamp"] = pd.to_datetime(
 )
 
 
-# Se l'ultimo dato è dello stesso minuto,
-# sostituiamolo.
+# ============================================================
+# CONTROLLO STESSO MINUTO
+# ============================================================
 
 if not history.empty:
 
@@ -529,6 +657,7 @@ if not history.empty:
         now.strftime(
             "%Y-%m-%d %H:%M"
         )
+
     )
 
 else:
@@ -541,6 +670,10 @@ if same_minute:
     history = history.iloc[:-1]
 
 
+# ============================================================
+# AGGIUNTA NUOVO PUNTO
+# ============================================================
+
 history = pd.concat(
     [
         history,
@@ -550,7 +683,10 @@ history = pd.concat(
 )
 
 
-# Manteniamo ultimi 100 punti
+# ============================================================
+# ULTIMI 100 PUNTI
+# ============================================================
+
 history = history.tail(100).copy()
 
 
@@ -617,7 +753,10 @@ c4.metric(
 plot_df = history.copy()
 
 
-# Lista pura di datetime
+# ============================================================
+# ASSE X
+# ============================================================
+
 x_values = [
 
     pd.Timestamp(x).to_pydatetime()
@@ -626,6 +765,10 @@ x_values = [
 
 ]
 
+
+# ============================================================
+# VALORI NASDAQ
+# ============================================================
 
 nasdaq_values = [
 
@@ -636,6 +779,10 @@ nasdaq_values = [
 ]
 
 
+# ============================================================
+# VALORI VIX
+# ============================================================
+
 vix_values = [
 
     float(x)
@@ -645,6 +792,10 @@ vix_values = [
 ]
 
 
+# ============================================================
+# VALORI BTC
+# ============================================================
+
 btc_values = [
 
     float(x)
@@ -653,6 +804,10 @@ btc_values = [
 
 ]
 
+
+# ============================================================
+# VALORI PANIERE
+# ============================================================
 
 basket_values = [
 
@@ -664,19 +819,24 @@ basket_values = [
 
 
 # ============================================================
-# CONFIGURAZIONE COMUNE GRAFICI
+# CONFIGURAZIONE PLOTLY
 # ============================================================
-
-# Queste impostazioni rendono i grafici:
 #
-# - non trascinabili
-# - non zoomabili
-# - non ridimensionabili con pinch
-# - non modificabili con doppio click
-# - con assi fissi
+# IMPORTANTE:
 #
-# L'HOVER rimane invece attivo.
-
+# staticPlot NON viene utilizzato perché eliminerebbe
+# completamente l'hover.
+#
+# I grafici rimangono interattivi SOLO per l'hover.
+#
+# fixedrange=True blocca gli assi.
+#
+# dragmode=False blocca il trascinamento.
+#
+# scrollZoom=False blocca lo zoom con rotella.
+#
+# doubleClick=False blocca il doppio click.
+# ============================================================
 
 PLOT_CONFIG = {
 
@@ -686,7 +846,9 @@ PLOT_CONFIG = {
 
     "doubleClick": False,
 
-    "showTips": True
+    "showTips": True,
+
+    "displaylogo": False
 
 }
 
@@ -702,6 +864,10 @@ st.subheader(
 
 fig1 = go.Figure()
 
+
+# ------------------------------------------------------------
+# NASDAQ
+# ------------------------------------------------------------
 
 fig1.add_trace(
 
@@ -726,13 +892,16 @@ fig1.add_trace(
 
         connectgaps=True,
 
-        # Hover attivo
         hoverinfo="x+y"
 
     )
 
 )
 
+
+# ------------------------------------------------------------
+# VIX
+# ------------------------------------------------------------
 
 fig1.add_trace(
 
@@ -757,13 +926,16 @@ fig1.add_trace(
 
         connectgaps=True,
 
-        # Hover attivo
         hoverinfo="x+y"
 
     )
 
 )
 
+
+# ------------------------------------------------------------
+# BITCOIN
+# ------------------------------------------------------------
 
 fig1.add_trace(
 
@@ -788,7 +960,6 @@ fig1.add_trace(
 
         connectgaps=True,
 
-        # Hover attivo
         hoverinfo="x+y"
 
     )
@@ -796,9 +967,17 @@ fig1.add_trace(
 )
 
 
+# ============================================================
+# LAYOUT GRAFICO 1
+# ============================================================
+
 fig1.update_layout(
 
     height=500,
+
+    # --------------------------------------------------------
+    # ASSE X BLOCCATO
+    # --------------------------------------------------------
 
     xaxis={
 
@@ -806,10 +985,13 @@ fig1.update_layout(
 
         "type": "date",
 
-        # BLOCCA L'ASSE X
         "fixedrange": True
 
     },
+
+    # --------------------------------------------------------
+    # ASSE Y BLOCCATO
+    # --------------------------------------------------------
 
     yaxis={
 
@@ -819,20 +1001,33 @@ fig1.update_layout(
 
         "showgrid": True,
 
-        # BLOCCA L'ASSE Y
         "fixedrange": True
 
     },
 
-    # Impedisce il trascinamento
-    "dragmode": False,
+    # --------------------------------------------------------
+    # TRASCINAMENTO DISABILITATO
+    # --------------------------------------------------------
 
-    # Mantiene l'hover
-    "hovermode": "x unified",
+    dragmode=False,
 
-    "template": "plotly_white",
+    # --------------------------------------------------------
+    # HOVER ATTIVO
+    # --------------------------------------------------------
 
-    "legend": {
+    hovermode="x unified",
+
+    # --------------------------------------------------------
+    # TEMA
+    # --------------------------------------------------------
+
+    template="plotly_white",
+
+    # --------------------------------------------------------
+    # LEGENDA
+    # --------------------------------------------------------
+
+    legend={
 
         "orientation": "h"
 
@@ -840,6 +1035,10 @@ fig1.update_layout(
 
 )
 
+
+# ============================================================
+# VISUALIZZAZIONE GRAFICO 1
+# ============================================================
 
 st.plotly_chart(
 
@@ -887,7 +1086,6 @@ fig2.add_trace(
 
         connectgaps=True,
 
-        # Hover attivo
         hoverinfo="x+y"
 
     )
@@ -895,9 +1093,17 @@ fig2.add_trace(
 )
 
 
+# ============================================================
+# LAYOUT GRAFICO 2
+# ============================================================
+
 fig2.update_layout(
 
     height=450,
+
+    # --------------------------------------------------------
+    # ASSE X BLOCCATO
+    # --------------------------------------------------------
 
     xaxis={
 
@@ -905,10 +1111,13 @@ fig2.update_layout(
 
         "type": "date",
 
-        # BLOCCA L'ASSE X
         "fixedrange": True
 
     },
+
+    # --------------------------------------------------------
+    # ASSE Y BLOCCATO
+    # --------------------------------------------------------
 
     yaxis={
 
@@ -918,21 +1127,34 @@ fig2.update_layout(
 
         "showgrid": True,
 
-        # BLOCCA L'ASSE Y
         "fixedrange": True
 
     },
 
-    # Impedisce trascinamento
-    "dragmode": False,
+    # --------------------------------------------------------
+    # TRASCINAMENTO DISABILITATO
+    # --------------------------------------------------------
 
-    # Mantiene hover
-    "hovermode": "x unified",
+    dragmode=False,
 
-    "template": "plotly_white"
+    # --------------------------------------------------------
+    # HOVER ATTIVO
+    # --------------------------------------------------------
+
+    hovermode="x unified",
+
+    # --------------------------------------------------------
+    # TEMA
+    # --------------------------------------------------------
+
+    template="plotly_white"
 
 )
 
+
+# ============================================================
+# VISUALIZZAZIONE GRAFICO 2
+# ============================================================
 
 st.plotly_chart(
 
@@ -946,7 +1168,7 @@ st.plotly_chart(
 
 
 # ============================================================
-# CONTROLLO
+# CONTROLLO TECNICO
 # ============================================================
 
 with st.expander("🔧 Controllo tecnico"):
@@ -955,9 +1177,11 @@ with st.expander("🔧 Controllo tecnico"):
 
     st.write(prices)
 
+
     st.write("### Basi")
 
     st.write(base)
+
 
     st.write("### Percentuali correnti")
 
@@ -971,7 +1195,9 @@ with st.expander("🔧 Controllo tecnico"):
 
     })
 
+
     st.write("### Calcolo paniere")
+
 
     st.write(
 
@@ -980,12 +1206,14 @@ with st.expander("🔧 Controllo tecnico"):
 
     )
 
+
     st.write(
 
         f"VIX × 10% = "
         f"{vix_pct * 0.10:.6f}"
 
     )
+
 
     st.write(
 
@@ -994,6 +1222,7 @@ with st.expander("🔧 Controllo tecnico"):
 
     )
 
+
     st.write(
 
         f"Totale = "
@@ -1001,7 +1230,11 @@ with st.expander("🔧 Controllo tecnico"):
 
     )
 
-    st.write("### Dati passati al grafico")
+
+    st.write(
+        "### Dati passati al grafico"
+    )
+
 
     st.dataframe(
 
@@ -1012,10 +1245,13 @@ with st.expander("🔧 Controllo tecnico"):
     )
 
 
+# ============================================================
+# FINE
+# ============================================================
+
 st.write("---")
 
 
 st.caption(
     "Dashboard aggiornata automaticamente ogni 5 minuti."
 )
-
