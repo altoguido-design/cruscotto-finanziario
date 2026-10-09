@@ -1,29 +1,89 @@
-import os
-from datetime import datetime, timedelta
+from datetime import datetime, time
+from zoneinfo import ZoneInfo
 
-os.environ["HF_HOME"] = "/tmp"
-os.environ["XDG_CACHE_HOME"] = "/tmp"
-
-import streamlit as st
-import yfinance as yf
 import pandas as pd
 import plotly.graph_objects as go
+import streamlit as st
+import yfinance as yf
 from streamlit_autorefresh import st_autorefresh
 
 
 # ============================================================
-# CONFIGURAZIONE STREAMLIT
+# CONFIGURAZIONE PAGINA
 # ============================================================
 
 st.set_page_config(
     page_title="Dashboard Finanziaria Real-Time",
-    layout="wide"
+    layout="wide",
 )
 
-st.title("📈 Dashboard Finanziaria Real-Time")
+
+# ============================================================
+# TITOLO
+# ============================================================
+
+st.title("Dashboard Finanziaria Real-Time")
+
+
+st.markdown("""
+<style>
+
+/* Compatta ulteriormente Fattori disponibili */
+h3 {
+    margin-top: 0.15rem !important;
+    margin-bottom: 0.03rem !important;
+    line-height: 1 !important;
+}
+
+div[data-testid="stDataFrame"] {
+    margin-top: -0.8rem !important;
+    margin-bottom: -0.05rem !important;
+}
+
+</style>
+""", unsafe_allow_html=True)
+
+st.markdown("""
+<style>
+h1 {
+    font-size: 2rem !important;
+    margin-top: -1rem !important;
+    margin-bottom: 0.05rem !important;
+    line-height: 1.05 !important;
+}
+
+h3 {
+    font-size: 1.1rem !important;
+    margin-top: 0.35rem !important;
+    margin-bottom: 0.15rem !important;
+    line-height: 1.1 !important;
+}
+
+div[data-testid="stMarkdownContainer"] p {
+    margin-top: 0 !important;
+    margin-bottom: 0.08rem !important;
+    line-height: 1.2 !important;
+}
+
+div[data-testid="stElementContainer"]:has(iframe) {
+    margin-top: -0.55rem !important;
+    margin-bottom: -0.6rem !important;
+}
+
+div[data-testid="stDataFrame"] {
+    margin-top: -0.4rem !important;
+    margin-bottom: 0.1rem !important;
+}
+
+div[data-testid="stDataFrame"] + div {
+    margin-top: -0.3rem !important;
+}
+
+</style>
+""", unsafe_allow_html=True)
 
 st.write(
-    "Nasdaq, VIX e Bitcoin - confronto percentuale e paniere ponderato."
+    "Mercato, MSTR e COIN - confronto dei principali fattori finanziari."
 )
 
 
@@ -32,137 +92,280 @@ st.write(
 # ============================================================
 
 st_autorefresh(
-    interval=300000,
-    key="refresh"
+    interval=300000,  # 5 minuti
+    key="financial_dashboard_refresh",
 )
 
 
 # ============================================================
-# PARAMETRI
+# FUSI ORARI
 # ============================================================
 
-TICKERS = {
-    "Nasdaq": "NQ=F",
-    "VIX": "^VIX",
-    "BTC": "BTC-USD"
+ROME_TZ = ZoneInfo("Europe/Rome")
+NEW_YORK_TZ = ZoneInfo("America/New_York")
+
+
+def get_current_times():
+    now_utc = datetime.now(ZoneInfo("UTC"))
+
+    return (
+        now_utc.astimezone(ROME_TZ),
+        now_utc.astimezone(NEW_YORK_TZ),
+    )
+
+
+def get_italy_market_status(now_rome):
+    """Classifica in modo semplice lo stato orario di Euronext Milan."""
+    if now_rome.weekday() >= 5:
+        return "BORSA ITALIANA CHIUSA"
+
+    current_time = now_rome.time()
+
+    if time(7, 30) <= current_time < time(9, 0):
+        return "PRE-BORSA"
+
+    if time(9, 0) <= current_time < time(17, 30):
+        return "BORSA ITALIANA APERTA"
+
+    if time(17, 30) <= current_time < time(20, 30):
+        return "POST-BORSA"
+
+    return "BORSA ITALIANA CHIUSA"
+
+
+def get_us_market_status(now_new_york):
+    """Determina lo stato della sessione USA in base all'ora di New York."""
+    if now_new_york.weekday() >= 5:
+        return "BORSA USA CHIUSA"
+
+    current_time = now_new_york.time()
+
+    if time(4, 0) <= current_time < time(9, 30):
+        return "PRE-BORSA"
+
+    if time(9, 30) <= current_time < time(16, 0):
+        return "BORSA USA APERTA"
+
+    if time(16, 0) <= current_time < time(20, 0):
+        return "POST-BORSA"
+
+    return "BORSA USA CHIUSA"
+
+# ============================================================
+# STRUMENTI
+# ============================================================
+
+INSTRUMENTS = {
+    "NQ=F": {
+        "name": "Nasdaq 100 Future",
+        "category": "Mercato",
+        "context": True,
+        "available": True,
+    },
+    "ES=F": {
+        "name": "S&P 500 Future",
+        "category": "Mercato",
+        "context": True,
+        "available": True,
+    },
+    "^VIX": {
+        "name": "VIX",
+        "category": "Mercato",
+        "context": True,
+        "available": True,
+    },
+    "BTC-USD": {
+        "name": "Bitcoin",
+        "category": "Mercato",
+        "context": True,
+        "available": True,
+    },
+    "MSTR": {
+        "name": "MSTR",
+        "category": "Titoli",
+        "context": False,
+        "available": True,
+    },
+    "COIN": {
+        "name": "COIN",
+        "category": "Titoli",
+        "context": False,
+        "available": True,
+    },
+    "MSTR_3X_LONG": {
+        "name": "MSTR 3x Long",
+        "category": "Strumenti 3x",
+        "context": False,
+        "available": False,
+        "ticker": None,
+    },
+    "MSTR_3X_SHORT": {
+        "name": "MSTR 3x Short",
+        "category": "Strumenti 3x",
+        "context": False,
+        "available": False,
+        "ticker": None,
+    },
+    "COIN_3X_LONG": {
+        "name": "COIN 3x Long",
+        "category": "Strumenti 3x",
+        "context": False,
+        "available": False,
+        "ticker": None,
+    },
+    "COIN_3X_SHORT": {
+        "name": "COIN 3x Short",
+        "category": "Strumenti 3x",
+        "context": False,
+        "available": False,
+        "ticker": None,
+    },
 }
 
 
-WEIGHTS = {
-    "Nasdaq": 0.45,
-    "VIX": 0.10,
-    "BTC": 0.45
+AVAILABLE_INSTRUMENTS = {
+    ticker: info
+    for ticker, info in INSTRUMENTS.items()
+    if info.get("available") and info.get("ticker", ticker) is not None
+}
+
+
+CONTEXT_INSTRUMENTS = {
+    ticker: info
+    for ticker, info in INSTRUMENTS.items()
+    if info.get("context") and info.get("available")
 }
 
 
 # ============================================================
-# CSS PER BLOCCARE LE INTERAZIONI TOUCH DEL GRAFICO
-# ============================================================
-#
-# IMPORTANTE:
-#
-# touch-action: pan-y
-#
-# consente di scorrere normalmente la pagina verso l'alto
-# e verso il basso sullo smartphone, ma impedisce al browser
-# di utilizzare il grafico per pan orizzontale e pinch-zoom.
-#
-# L'hover/touch di Plotly rimane invece disponibile.
-#
-# La regola viene applicata solo al contenitore del grafico.
+# STILE
 # ============================================================
 
 st.markdown(
     """
     <style>
-
-    /* ======================================================
-       BLOCCO TOUCH GRAFICI PLOTLY
-       ====================================================== */
-
-    .js-plotly-plot,
-    .plotly,
-    .plotly-graph-div {
-
-        touch-action: pan-y !important;
-
-        -webkit-user-select: none !important;
-        user-select: none !important;
-
+    h1 {
+        font-size: 2rem;
     }
 
-    /* Evita selezioni accidentali del testo durante
-       il trascinamento sullo smartphone */
-
-    .js-plotly-plot .plotly {
-
-        -webkit-touch-callout: none !important;
-
+    h2 {
+        font-size: 1.45rem;
     }
 
+    h3 {
+        font-size: 1.15rem;
+    }
+
+    .stMetric {
+        padding-top: 0.15rem;
+        padding-bottom: 0.15rem;
+    }
+
+    [data-testid="stMetricValue"] {
+        font-size: 1.55rem;
+    }
+
+    [data-testid="stMetricLabel"] {
+        font-size: 0.85rem;
+    }
+
+    [data-testid="stMetricDelta"] {
+        font-size: 0.85rem;
+    }
+
+    .stDataFrame {
+        font-size: 0.85rem;
+    }
+
+    .context-box {
+        padding: 1rem;
+        border-radius: 0.6rem;
+        border: 1px solid rgba(128, 128, 128, 0.35);
+        margin-bottom: 1rem;
+    }
     </style>
     """,
-    unsafe_allow_html=True
+    unsafe_allow_html=True,
 )
 
 
 # ============================================================
-# PREZZI CORRENTI
+# DATI ATTUALI
 # ============================================================
 
+@st.cache_data(ttl=300)
 def fetch_current_prices():
-
     prices = {}
 
-    for name, ticker in TICKERS.items():
-
+    for ticker in AVAILABLE_INSTRUMENTS:
         try:
-
-            obj = yf.Ticker(ticker)
-
-            data = obj.history(
-                period="1d",
-                interval="5m"
+            data = yf.Ticker(ticker).history(
+                period="2d",
+                interval="5m",
+                auto_adjust=False,
+                prepost=True,
             )
 
-            if not data.empty:
-
+            if not data.empty and "Close" in data.columns:
                 close = pd.to_numeric(
                     data["Close"],
-                    errors="coerce"
+                    errors="coerce",
                 ).dropna()
 
-                if len(close) > 0:
-
-                    prices[name] = float(
-                        close.iloc[-1]
-                    )
-
+                if not close.empty:
+                    prices[ticker] = float(close.iloc[-1])
                     continue
 
-            # ------------------------------------------------
-            # FALLBACK
-            # ------------------------------------------------
-
             try:
+                fast_info = yf.Ticker(ticker).fast_info
+                last_price = fast_info.get("last_price")
 
-                prices[name] = float(
-                    obj.fast_info["last_price"]
-                )
+                if last_price is not None:
+                    prices[ticker] = float(last_price)
 
             except Exception:
+                pass
 
-                prices[name] = None
-
-        except Exception as e:
-
-            print(
-                f"Errore prezzo {name}: {e}"
-            )
-
-            prices[name] = None
+        except Exception:
+            prices[ticker] = None
 
     return prices
+
+
+# ============================================================
+# PREZZI DI RIFERIMENTO
+# ============================================================
+
+@st.cache_data(ttl=300)
+def fetch_reference_prices():
+    references = {}
+
+    for ticker in AVAILABLE_INSTRUMENTS:
+        try:
+            data = yf.Ticker(ticker).history(
+                period="7d",
+                interval="1d",
+                auto_adjust=False,
+            )
+
+            if data.empty or "Close" not in data.columns:
+                references[ticker] = None
+                continue
+
+            close = pd.to_numeric(
+                data["Close"],
+                errors="coerce",
+            ).dropna()
+
+            if len(close) >= 2:
+                references[ticker] = float(close.iloc[-2])
+            else:
+                references[ticker] = None
+
+        except Exception:
+            references[ticker] = None
+
+    return references
 
 
 # ============================================================
@@ -171,1087 +374,898 @@ def fetch_current_prices():
 
 @st.cache_data(ttl=600)
 def load_history():
+    histories = {}
 
-    series = {}
-
-    for name, ticker in TICKERS.items():
-
+    for ticker in AVAILABLE_INSTRUMENTS:
         try:
-
             data = yf.Ticker(ticker).history(
                 period="2d",
-                interval="1h"
+                interval="1h",
+                auto_adjust=False,
             )
 
-            if data.empty:
-
-                return pd.DataFrame()
+            if data.empty or "Close" not in data.columns:
+                continue
 
             close = pd.to_numeric(
                 data["Close"],
-                errors="coerce"
+                errors="coerce",
             ).dropna()
 
             if close.empty:
+                continue
 
-                return pd.DataFrame()
+            histories[ticker] = close
 
-            # ------------------------------------------------
-            # RIMOZIONE TIMEZONE
-            # ------------------------------------------------
+        except Exception:
+            continue
 
-            if getattr(close.index, "tz", None) is not None:
-
-                close.index = close.index.tz_localize(None)
-
-            # ------------------------------------------------
-            # ARROTONDAMENTO
-            # ------------------------------------------------
-
-            close.index = close.index.round("h")
-
-            series[name] = close
-
-        except Exception as e:
-
-            print(
-                f"Errore storico {name}: {e}"
-            )
-
-            return pd.DataFrame()
-
-
-    # ========================================================
-    # UNIONE
-    # ========================================================
-
-    df = pd.concat(
-        series,
-        axis=1
-    )
-
-    df = df.sort_index()
-
-    # Riempie eventuali buchi
-    df = df.ffill().bfill()
-
-    # Ultimi 20 punti
-    df = df.tail(20).copy()
-
-    if df.empty:
-
+    if not histories:
         return pd.DataFrame()
 
+    history_df = pd.concat(
+        histories,
+        axis=1,
+        sort=False,
+    )
 
-    # ========================================================
-    # BASE
-    # ========================================================
+    history_df = history_df.sort_index()
 
-    base = {}
+    # Riempie soltanto dati mancanti precedenti.
+    # Non utilizziamo bfill(), perche potrebbe usare dati futuri.
+    history_df = history_df.ffill()
 
-    for name in TICKERS:
+    return history_df.tail(20)
 
-        values = pd.to_numeric(
-            df[name],
-            errors="coerce"
-        ).dropna()
 
-        if values.empty:
+# ============================================================
+# STORICO PER VALIDAZIONE
+# ============================================================
 
+@st.cache_data(ttl=600)
+def load_validation_history(tickers):
+    """
+    Carica 30 giorni di dati orari per la verifica storica
+    del rapporto tra contesto e movimento successivo di MSTR/COIN.
+
+    Questa funzione e separata da load_history() per non
+    modificare il comportamento dei grafici gia esistenti.
+    """
+
+    data = yf.download(
+        tickers,
+        period="30d",
+        interval="1h",
+        auto_adjust=False,
+        progress=False,
+        group_by="column",
+    )
+
+    if data.empty:
+        return pd.DataFrame()
+
+    if isinstance(data.columns, pd.MultiIndex):
+        if "Close" not in data.columns.get_level_values(0):
             return pd.DataFrame()
 
-        base[name] = float(
-            values.iloc[0]
-        )
+        data = data["Close"]
 
+    elif "Close" in data.columns:
+        data = data[["Close"]]
 
-    # ========================================================
-    # VARIAZIONI %
-    # ========================================================
-
-    df["Nasdaq_Pct"] = (
-
-        (
-            df["Nasdaq"]
-            -
-            base["Nasdaq"]
-        )
-        /
-        base["Nasdaq"]
-
-    ) * 100
-
-
-    df["VIX_Pct"] = (
-
-        (
-            df["VIX"]
-            -
-            base["VIX"]
-        )
-        /
-        base["VIX"]
-
-    ) * 100
-
-
-    df["BTC_Pct"] = (
-
-        (
-            df["BTC"]
-            -
-            base["BTC"]
-        )
-        /
-        base["BTC"]
-
-    ) * 100
-
-
-    # ========================================================
-    # PANIERE PONDERATO
-    # ========================================================
-
-    df["Indice_Ponderato"] = (
-
-        df["Nasdaq_Pct"]
-        *
-        WEIGHTS["Nasdaq"]
-
-        +
-
-        df["VIX_Pct"]
-        *
-        WEIGHTS["VIX"]
-
-        +
-
-        df["BTC_Pct"]
-        *
-        WEIGHTS["BTC"]
+    data = data.apply(
+        pd.to_numeric,
+        errors="coerce",
     )
 
+    data = data.dropna(how="all")
+    data = data.sort_index()
 
-    # ========================================================
-    # DATAFRAME FINALE
-    # ========================================================
-
-    result = pd.DataFrame({
-
-        "Timestamp": df.index,
-
-        "Nasdaq_Pct": pd.to_numeric(
-            df["Nasdaq_Pct"],
-            errors="coerce"
-        ),
-
-        "VIX_Pct": pd.to_numeric(
-            df["VIX_Pct"],
-            errors="coerce"
-        ),
-
-        "BTC_Pct": pd.to_numeric(
-            df["BTC_Pct"],
-            errors="coerce"
-        ),
-
-        "Indice_Ponderato": pd.to_numeric(
-            df["Indice_Ponderato"],
-            errors="coerce"
-        )
-
-    })
-
-
-    return result
+    return data
 
 
 # ============================================================
-# CARICAMENTO PREZZI
+# CALCOLO VARIAZIONI %
 # ============================================================
 
-prices = fetch_current_prices()
-
-
-valid_prices = all(
-    prices.get(name) is not None
-    for name in TICKERS
-)
-
-
-if not valid_prices:
-
-    st.error(
-        "Errore nel caricamento dei dati da Yahoo Finance."
-    )
-
-    st.stop()
-
-
-# ============================================================
-# CARICAMENTO STORICO
-# ============================================================
-
-if (
-    "base_values" not in st.session_state
-    or
-    "history" not in st.session_state
+def calculate_percent_changes(
+    history_df,
+    references,
 ):
+    if history_df.empty:
+        return pd.DataFrame()
 
-    historical = load_history()
-
-
-    # ========================================================
-    # FALLBACK
-    # ========================================================
-
-    if historical.empty:
-
-        now = datetime.now()
-
-        historical = pd.DataFrame({
-
-            "Timestamp": [
-                now - timedelta(minutes=5)
-            ],
-
-            "Nasdaq_Pct": [
-                0.0
-            ],
-
-            "VIX_Pct": [
-                0.0
-            ],
-
-            "BTC_Pct": [
-                0.0
-            ],
-
-            "Indice_Ponderato": [
-                0.0
-            ]
-
-        })
-
-
-        st.session_state.base_values = {
-
-            name: float(prices[name])
-            for name in TICKERS
-
-        }
-
-
-    else:
-
-        # ----------------------------------------------------
-        # BASE PROVVISORIA
-        # ----------------------------------------------------
-
-        st.session_state.base_values = {
-
-            "Nasdaq": float(
-                historical["Nasdaq_Pct"].iloc[0] * 0 + 1
-            )
-
-        }
-
-
-        # ----------------------------------------------------
-        # RECUPERO BASI REALI
-        # ----------------------------------------------------
-
-        raw = {}
-
-
-        for name, ticker in TICKERS.items():
-
-            try:
-
-                data = yf.Ticker(ticker).history(
-                    period="2d",
-                    interval="1h"
-                )
-
-                close = pd.to_numeric(
-                    data["Close"],
-                    errors="coerce"
-                ).dropna()
-
-                if not close.empty:
-
-                    raw[name] = float(
-                        close.iloc[0]
-                    )
-
-            except Exception:
-
-                pass
-
-
-        # ----------------------------------------------------
-        # BASI
-        # ----------------------------------------------------
-
-        if len(raw) == 3:
-
-            st.session_state.base_values = raw
-
-        else:
-
-            st.session_state.base_values = {
-
-                name: float(prices[name])
-                for name in TICKERS
-
-            }
-
-
-    st.session_state.history = historical
-
-
-# ============================================================
-# BASE
-# ============================================================
-
-base = st.session_state.base_values
-
-
-# ============================================================
-# CALCOLO NASDAQ %
-# ============================================================
-
-nasdaq_pct = (
-
-    (
-        float(prices["Nasdaq"])
-        -
-        float(base["Nasdaq"])
+    percent_df = pd.DataFrame(
+        index=history_df.index
     )
-    /
-    float(base["Nasdaq"])
 
-) * 100
+    for ticker in history_df.columns:
+        reference = references.get(ticker)
 
+        if reference is None or reference == 0:
+            percent_df[ticker] = pd.NA
+            continue
 
-# ============================================================
-# CALCOLO VIX %
-# ============================================================
+        percent_df[ticker] = (
+            (history_df[ticker] - reference)
+            / reference
+            * 100
+        )
 
-vix_pct = (
-
-    (
-        float(prices["VIX"])
-        -
-        float(base["VIX"])
-    )
-    /
-    float(base["VIX"])
-
-) * 100
+    return percent_df
 
 
 # ============================================================
-# CALCOLO BTC %
+# CALCOLO DEL CONTESTO
 # ============================================================
 
-btc_pct = (
+def factor_direction(value, invert=False):
+    """
+    Restituisce:
+        +1 = favorevole
+         0 = neutro/non determinabile
+        -1 = sfavorevole
 
-    (
-        float(prices["BTC"])
-        -
-        float(base["BTC"])
-    )
-    /
-    float(base["BTC"])
+    Per il VIX la logica viene invertita:
+    VIX in calo -> favorevole
+    VIX in aumento -> sfavorevole
+    """
 
-) * 100
+    if pd.isna(value):
+        return 0
 
+    if invert:
+        value = -value
 
-# ============================================================
-# CALCOLO PANIERE
-# ============================================================
+    if value > 0:
+        return 1
 
-indice_ponderato = (
+    if value < 0:
+        return -1
 
-    float(nasdaq_pct)
-    *
-    WEIGHTS["Nasdaq"]
-
-    +
-
-    float(vix_pct)
-    *
-    WEIGHTS["VIX"]
-
-    +
-
-    float(btc_pct)
-    *
-    WEIGHTS["BTC"]
-
-)
+    return 0
 
 
-# ============================================================
-# NUOVO PUNTO
-# ============================================================
+def calculate_context(percent_changes):
+    """
+    Calcola il contesto utilizzando esclusivamente:
 
-now = datetime.now()
+    - Nasdaq 100 Future
+    - S&P 500 Future
+    - Bitcoin
+    - VIX
 
+    Ogni fattore contribuisce:
+        +1 favorevole
+         0 neutro/non disponibile
+        -1 sfavorevole
 
-new_row = pd.DataFrame({
+    Il VIX viene interpretato al contrario:
+    aumento del VIX = pressione negativa.
+    """
 
-    "Timestamp": [
-        now
-    ],
+    components = {}
 
-    "Nasdaq_Pct": [
-        float(nasdaq_pct)
-    ],
+    for ticker in ["NQ=F", "ES=F", "BTC-USD"]:
+        if ticker in percent_changes:
+            value = percent_changes[ticker]
+            components[ticker] = factor_direction(value)
 
-    "VIX_Pct": [
-        float(vix_pct)
-    ],
+    if "^VIX" in percent_changes:
+        value = percent_changes["^VIX"]
+        components["^VIX"] = factor_direction(
+            value,
+            invert=True,
+        )
 
-    "BTC_Pct": [
-        float(btc_pct)
-    ],
-
-    "Indice_Ponderato": [
-        float(indice_ponderato)
+    valid_components = [
+        value
+        for value in components.values()
+        if value != 0
     ]
 
-})
+    if not valid_components:
+        return {
+            "score": None,
+            "status": "DATI INSUFFICIENTI",
+            "components": components,
+            "available": 0,
+        }
+
+    score = sum(valid_components)
+
+    available = len(valid_components)
+
+    # Non produciamo un giudizio forte se i dati
+    # disponibili sono troppo pochi.
+    if available < 3:
+        status = "CONTESTO INCERTO"
+
+    elif score >= 2:
+        status = "CONTESTO FAVOREVOLE"
+
+    elif score <= -2:
+        status = "CONTESTO SFAVOREVOLE"
+
+    else:
+        status = "CONTESTO INCERTO"
+
+    return {
+        "score": score,
+        "status": status,
+        "components": components,
+        "available": available,
+    }
+
+
+def context_component_label(
+    ticker,
+    value,
+):
+    if pd.isna(value):
+        return "dato non disponibile"
+
+    if ticker == "^VIX":
+        if value < 0:
+            return "favorevole: VIX in calo"
+        elif value > 0:
+            return "sfavorevole: VIX in aumento"
+        return "neutro"
+
+    if value > 0:
+        return "favorevole"
+
+    if value < 0:
+        return "sfavorevole"
+
+    return "neutro"
 
 
 # ============================================================
-# AGGIORNAMENTO HISTORY
+# COSTRUZIONE STORICO CONTESTO
 # ============================================================
 
-history = st.session_state.history.copy()
+def build_context_history(percent_history, selected_context_tickers):
+    if percent_history.empty or not selected_context_tickers:
+        return pd.Series(dtype="float64")
 
+    context_values = []
 
-history["Timestamp"] = pd.to_datetime(
-    history["Timestamp"],
-    errors="coerce"
-)
+    for timestamp, row in percent_history.iterrows():
+        score = 0
+        available = 0
 
+        for ticker in selected_context_tickers:
+            if ticker not in row.index:
+                continue
 
-# ============================================================
-# CONTROLLO STESSO MINUTO
-# ============================================================
+            value = row[ticker]
 
-if not history.empty:
+            if pd.isna(value):
+                continue
 
-    last_time = history["Timestamp"].iloc[-1]
+            direction = factor_direction(
+                value,
+                invert=(ticker == "^VIX"),
+            )
 
-    same_minute = (
+            if direction != 0:
+                score += direction
+                available += 1
 
-        last_time.strftime(
-            "%Y-%m-%d %H:%M"
-        )
+        if available > 0:
+            context_values.append((timestamp, score))
 
-        ==
+    if not context_values:
+        return pd.Series(dtype="float64")
 
-        now.strftime(
-            "%Y-%m-%d %H:%M"
-        )
-
+    return pd.Series(
+        data=[value for _, value in context_values],
+        index=[timestamp for timestamp, _ in context_values],
+        dtype="float64",
     )
 
-else:
-
-    same_minute = False
-
-
-if same_minute:
-
-    history = history.iloc[:-1]
-
 
 # ============================================================
-# AGGIUNTA NUOVO PUNTO
+# DATI
 # ============================================================
 
-history = pd.concat(
-    [
-        history,
-        new_row
+# Selezione degli strumenti da visualizzare
+st.subheader("Strumenti da visualizzare")
+
+default_selection = [
+    "NQ=F",
+    "ES=F",
+    "^VIX",
+    "BTC-USD",
+    "MSTR",
+    "COIN",
+]
+
+selected_tickers = st.multiselect(
+    "Seleziona gli strumenti",
+    options=list(AVAILABLE_INSTRUMENTS.keys()),
+    default=[
+        ticker
+        for ticker in default_selection
+        if ticker in AVAILABLE_INSTRUMENTS
     ],
-    ignore_index=True
+    format_func=lambda ticker: INSTRUMENTS[ticker]["name"],
+)
+
+selected_context_tickers = [
+    ticker
+    for ticker in selected_tickers
+    if INSTRUMENTS[ticker].get("context")
+]
+
+
+current_prices = fetch_current_prices()
+reference_prices = fetch_reference_prices()
+history_df = load_history()
+
+percent_history = calculate_percent_changes(
+    history_df,
+    reference_prices,
+)
+
+context_history = build_context_history(
+    percent_history,
+    selected_context_tickers,
 )
 
 
 # ============================================================
-# ULTIMI 100 PUNTI
+# ORARI E STATO MERCATO
 # ============================================================
 
-history = history.tail(100).copy()
+rome_now, ny_now = get_current_times()
+us_market_status = get_us_market_status(ny_now)
+italy_market_status = get_italy_market_status(rome_now)
 
+st.subheader("Stato del mercato")
 
-# ============================================================
-# FORZA NUMERICO
-# ============================================================
+time_col1, time_col2, time_col3, time_col4 = st.columns(4)
 
-for col in [
-
-    "Nasdaq_Pct",
-    "VIX_Pct",
-    "BTC_Pct",
-    "Indice_Ponderato"
-
-]:
-
-    history[col] = pd.to_numeric(
-        history[col],
-        errors="coerce"
+with time_col1:
+    st.metric(
+        "Ora Italia",
+        rome_now.strftime("%H:%M:%S"),
     )
 
+with time_col2:
+    st.metric(
+        "Ora New York",
+        ny_now.strftime("%H:%M:%S"),
+    )
 
-st.session_state.history = history
+with time_col3:
+    st.metric(
+        "Mercato USA",
+        us_market_status,
+    )
 
+with time_col4:
+    st.metric(
+        "Borsa Italiana",
+        italy_market_status,
+    )
 
-# ============================================================
-# METRICHE
-# ============================================================
-
-c1, c2, c3, c4 = st.columns(4)
-
-
-c1.metric(
-    "Nasdaq 100 Future",
-    f"{prices['Nasdaq']:.2f}",
-    f"{nasdaq_pct:.2f}%"
+st.caption(
+    f"Data: {rome_now.strftime('%d/%m/%Y')} | "
+    f"Riferimento USA: {ny_now.strftime('%d/%m/%Y')}"
 )
 
-
-c2.metric(
-    "VIX Index",
-    f"{prices['VIX']:.2f}",
-    f"{vix_pct:.2f}%"
-)
-
-
-c3.metric(
-    "Bitcoin",
-    f"${prices['BTC']:.2f}",
-    f"{btc_pct:.2f}%"
-)
-
-
-c4.metric(
-    "Paniere Ponderato",
-    f"{indice_ponderato:.2f}%"
+st.info(
+    "Bitcoin e attivo 24/7. I dati di futures, VIX, MSTR e COIN "
+    "dipendono invece dagli orari e dalle sessioni dei rispettivi mercati."
 )
 
 
 # ============================================================
-# DATAFRAME PER PLOTLY
+# SITUAZIONE ATTUALE
 # ============================================================
 
-plot_df = history.copy()
+st.subheader("Situazione attuale")
 
-
-# ============================================================
-# ASSE X
-# ============================================================
-
-x_values = [
-
-    pd.Timestamp(x).to_pydatetime()
-
-    for x in plot_df["Timestamp"]
-
+market_tickers = [
+    "NQ=F",
+    "ES=F",
+    "^VIX",
+    "BTC-USD",
 ]
 
+market_columns = st.columns(4)
 
-# ============================================================
-# VALORI NASDAQ
-# ============================================================
+for column, ticker in zip(
+    market_columns,
+    market_tickers,
+):
+    with column:
+        name = INSTRUMENTS[ticker]["name"]
+        price = current_prices.get(ticker)
+        reference = reference_prices.get(ticker)
 
-nasdaq_values = [
+        if price is None:
+            st.metric(
+                name,
+                "N/D",
+            )
+            continue
 
-    float(x)
+        delta = None
 
-    for x in plot_df["Nasdaq_Pct"]
+        if (
+            reference is not None
+            and reference != 0
+        ):
+            delta = (
+                (price - reference)
+                / reference
+                * 100
+            )
 
-]
-
-
-# ============================================================
-# VALORI VIX
-# ============================================================
-
-vix_values = [
-
-    float(x)
-
-    for x in plot_df["VIX_Pct"]
-
-]
-
-
-# ============================================================
-# VALORI BTC
-# ============================================================
-
-btc_values = [
-
-    float(x)
-
-    for x in plot_df["BTC_Pct"]
-
-]
+        st.metric(
+            name,
+            f"{price:,.2f}",
+            f"{delta:+.2f}%" if delta is not None else None,
+        )
 
 
-# ============================================================
-# VALORI PANIERE
-# ============================================================
+title_columns = st.columns(2)
 
-basket_values = [
+for column, ticker in zip(
+    title_columns,
+    ["MSTR", "COIN"],
+):
+    with column:
+        name = INSTRUMENTS[ticker]["name"]
+        price = current_prices.get(ticker)
+        reference = reference_prices.get(ticker)
 
-    float(x)
+        if price is None:
+            st.metric(
+                name,
+                "N/D",
+            )
+            continue
 
-    for x in plot_df["Indice_Ponderato"]
+        delta = None
 
-]
+        if (
+            reference is not None
+            and reference != 0
+        ):
+            delta = (
+                (price - reference)
+                / reference
+                * 100
+            )
+
+        st.metric(
+            name,
+            f"${price:,.2f}",
+            f"{delta:+.2f}%" if delta is not None else None,
+        )
 
 
-# ============================================================
-# CONFIGURAZIONE PLOTLY
-# ============================================================
-#
-# IMPORTANTE:
-#
-# staticPlot NON viene utilizzato perché eliminerebbe
-# completamente l'hover.
-#
-# I grafici rimangono interattivi SOLO per l'hover.
-#
-# fixedrange=True blocca gli assi.
-#
-# dragmode=False blocca il trascinamento.
-#
-# scrollZoom=False blocca lo zoom con rotella.
-#
-# doubleClick=False blocca il doppio click.
-# ============================================================
-
-PLOT_CONFIG = {
-
-    "displayModeBar": False,
-
-    "scrollZoom": False,
-
-    "doubleClick": False,
-
-    "showTips": True,
-
-    "displaylogo": False
-
-}
-
+        st.caption(us_market_status)
 
 # ============================================================
 # GRAFICO 1
 # ============================================================
 
-st.subheader(
-    "1. Variazioni Percentuali"
-)
+st.subheader("1. Confronto")
 
+if percent_history.empty:
+    st.warning(
+        "Dati storici non sufficienti per costruire il confronto."
+    )
+else:
+    graph1 = go.Figure()
 
-fig1 = go.Figure()
+    for ticker in selected_tickers:
+        if ticker not in percent_history.columns:
+            continue
 
+        series = percent_history[ticker].dropna()
 
-# ------------------------------------------------------------
-# NASDAQ
-# ------------------------------------------------------------
+        if series.empty:
+            continue
 
-fig1.add_trace(
+        graph1.add_trace(
+            go.Scatter(
+                x=series.index,
+                y=series.values,
+                mode="lines+markers+text",
+                name=INSTRUMENTS[ticker]["name"],
+                text=[f"{value:+.2f}%" for value in series.values],
+                textposition="top center",
+                textfont=dict(size=8),
+                hovertemplate=(
+                    f"{INSTRUMENTS[ticker]['name']}: "
+                    "%{y:+.2f}%<extra></extra>"
+                ),
+            )
+        )
 
-    go.Scatter(
-
-        x=x_values,
-
-        y=nasdaq_values,
-
-        mode="lines+markers",
-
-        name="Nasdaq 100",
-
-        line={
-            "color": "#636EFA",
-            "width": 4
-        },
-
-        marker={
-            "size": 7
-        },
-
-        connectgaps=True,
-
-        hoverinfo="x+y"
-
+    graph1.add_hline(
+        y=0,
+        line_dash="dot",
     )
 
-)
-
-
-# ------------------------------------------------------------
-# VIX
-# ------------------------------------------------------------
-
-fig1.add_trace(
-
-    go.Scatter(
-
-        x=x_values,
-
-        y=vix_values,
-
-        mode="lines+markers",
-
-        name="VIX",
-
-        line={
-            "color": "#EF553B",
-            "width": 4
-        },
-
-        marker={
-            "size": 7
-        },
-
-        connectgaps=True,
-
-        hoverinfo="x+y"
-
+    graph1.update_layout(
+        xaxis_title="Ora",
+        yaxis_title="Variazione %",
+        hovermode="x unified",
+        margin=dict(
+            l=20,
+            r=20,
+            t=20,
+            b=20,
+        ),
     )
 
-)
-
-
-# ------------------------------------------------------------
-# BITCOIN
-# ------------------------------------------------------------
-
-fig1.add_trace(
-
-    go.Scatter(
-
-        x=x_values,
-
-        y=btc_values,
-
-        mode="lines+markers",
-
-        name="Bitcoin",
-
-        line={
-            "color": "#00CC96",
-            "width": 4
+    st.plotly_chart(
+        graph1,
+        width="stretch",
+        config={
+            "displayModeBar": False,
+            "scrollZoom": False,
         },
-
-        marker={
-            "size": 7
-        },
-
-        connectgaps=True,
-
-        hoverinfo="x+y"
-
     )
 
+
+# ============================================================
+# INDICATORE DI CONTESTO
+# ============================================================
+
+st.subheader("2. Indicatore di contesto")
+
+# Valori dell'ultima rilevazione disponibile
+# per i 4 fattori del contesto.
+
+latest_context_values = {}
+
+for ticker in selected_context_tickers:
+    if (
+        ticker in percent_history.columns
+        and not percent_history[ticker].dropna().empty
+    ):
+        latest_context_values[ticker] = (
+            percent_history[ticker]
+            .dropna()
+            .iloc[-1]
+        )
+    else:
+        latest_context_values[ticker] = pd.NA
+
+current_context = calculate_context(
+    pd.Series(latest_context_values)
 )
 
+status = current_context["status"]
+score = current_context["score"]
+available = current_context["available"]
 
-# ============================================================
-# LAYOUT GRAFICO 1
-# ============================================================
 
-fig1.update_layout(
+if status == "CONTESTO FAVOREVOLE":
+    st.success(status)
 
-    height=500,
+elif status == "CONTESTO SFAVOREVOLE":
+    st.error(status)
 
-    # --------------------------------------------------------
-    # ASSE X BLOCCATO
-    # --------------------------------------------------------
+elif status == "DATI INSUFFICIENTI":
+    st.warning(status)
 
-    xaxis={
+else:
+    st.warning(status)
 
-        "title": "Ora",
 
-        "type": "date",
-
-        "fixedrange": True
-
-    },
-
-    # --------------------------------------------------------
-    # ASSE Y BLOCCATO
-    # --------------------------------------------------------
-
-    yaxis={
-
-        "title": "Variazione %",
-
-        "zeroline": True,
-
-        "showgrid": True,
-
-        "fixedrange": True
-
-    },
-
-    # --------------------------------------------------------
-    # TRASCINAMENTO DISABILITATO
-    # --------------------------------------------------------
-
-    dragmode=False,
-
-    # --------------------------------------------------------
-    # HOVER ATTIVO
-    # --------------------------------------------------------
-
-    hovermode="x unified",
-
-    # --------------------------------------------------------
-    # TEMA
-    # --------------------------------------------------------
-
-    template="plotly_white",
-
-    # --------------------------------------------------------
-    # LEGENDA
-    # --------------------------------------------------------
-
-    legend={
-
-        "orientation": "h"
-
-    }
-
-)
-
-
-# ============================================================
-# VISUALIZZAZIONE GRAFICO 1
-# ============================================================
-
-st.plotly_chart(
-
-    fig1,
-
-    use_container_width=True,
-
-    config=PLOT_CONFIG
-
-)
-
-
-# ============================================================
-# GRAFICO 2
-# ============================================================
-
-st.subheader(
-    "2. Paniere Ponderato"
-)
-
-
-fig2 = go.Figure()
-
-
-fig2.add_trace(
-
-    go.Scatter(
-
-        x=x_values,
-
-        y=basket_values,
-
-        mode="lines+markers",
-
-        name="Paniere",
-
-        line={
-            "color": "#00CC96",
-            "width": 5
-        },
-
-        marker={
-            "size": 8
-        },
-
-        connectgaps=True,
-
-        hoverinfo="x+y"
-
-    )
-
-)
-
-
-# ============================================================
-# LAYOUT GRAFICO 2
-# ============================================================
-
-fig2.update_layout(
-
-    height=450,
-
-    # --------------------------------------------------------
-    # ASSE X BLOCCATO
-    # --------------------------------------------------------
-
-    xaxis={
-
-        "title": "Ora",
-
-        "type": "date",
-
-        "fixedrange": True
-
-    },
-
-    # --------------------------------------------------------
-    # ASSE Y BLOCCATO
-    # --------------------------------------------------------
-
-    yaxis={
-
-        "title": "Indice %",
-
-        "zeroline": True,
-
-        "showgrid": True,
-
-        "fixedrange": True
-
-    },
-
-    # --------------------------------------------------------
-    # TRASCINAMENTO DISABILITATO
-    # --------------------------------------------------------
-
-    dragmode=False,
-
-    # --------------------------------------------------------
-    # HOVER ATTIVO
-    # --------------------------------------------------------
-
-    hovermode="x unified",
-
-    # --------------------------------------------------------
-    # TEMA
-    # --------------------------------------------------------
-
-    template="plotly_white"
-
-)
-
-
-# ============================================================
-# VISUALIZZAZIONE GRAFICO 2
-# ============================================================
-
-st.plotly_chart(
-
-    fig2,
-
-    use_container_width=True,
-
-    config=PLOT_CONFIG
-
-)
-
-
-# ============================================================
-# CONTROLLO TECNICO
-# ============================================================
-
-with st.expander("🔧 Controllo tecnico"):
-
-    st.write("### Prezzi attuali")
-
-    st.write(prices)
-
-
-    st.write("### Basi")
-
-    st.write(base)
-
-
-    st.write("### Percentuali correnti")
-
-    st.write({
-
-        "Nasdaq": nasdaq_pct,
-
-        "VIX": vix_pct,
-
-        "BTC": btc_pct
-
-    })
-
-
-    st.write("### Calcolo paniere")
-
+if selected_context_tickers:
+    selected_names = [
+        INSTRUMENTS[ticker]["name"]
+        for ticker in selected_context_tickers
+    ]
 
     st.write(
-
-        f"Nasdaq × 45% = "
-        f"{nasdaq_pct * 0.45:.6f}"
-
+        "Il contesto e calcolato sui fattori selezionati: "
+        + ", ".join(selected_names)
+        + "."
     )
 
+    if score is not None:
+        st.caption(
+            f"Fattori utilizzabili: {available} su "
+            f"{len(selected_context_tickers)} selezionati."
+        )
+
+    st.caption(
+        "Questo indicatore descrive il contesto generale di mercato. "
+        "Non rappresenta da solo una previsione sul movimento di MSTR o COIN."
+    )
+else:
+    st.warning(
+        "Seleziona almeno un fattore di mercato per calcolare il contesto."
+    )
+
+
+# Confronto descrittivo tra contesto e movimento reale dei titoli
+st.markdown("**Confronto contesto / movimento reale**")
+
+for ticker in ["MSTR", "COIN"]:
+    price = current_prices.get(ticker)
+    reference = reference_prices.get(ticker)
+
+    if (
+        price is None
+        or reference is None
+        or reference == 0
+    ):
+        st.write(f"{ticker}: dati non sufficienti per il confronto.")
+        continue
+
+    movement = (
+        (price - reference)
+        / reference
+        * 100
+    )
+
+    if movement > 0:
+        movement_label = "in rialzo"
+    elif movement < 0:
+        movement_label = "in ribasso"
+    else:
+        movement_label = "stabile"
+
+    if status == "CONTESTO FAVOREVOLE":
+        context_label = "favorevole"
+    elif status == "CONTESTO SFAVOREVOLE":
+        context_label = "sfavorevole"
+    else:
+        context_label = "incerto"
 
     st.write(
-
-        f"VIX × 10% = "
-        f"{vix_pct * 0.10:.6f}"
-
+        f"{ticker}: {movement:+.2f}% ({movement_label}). "
+        f"Contesto generale: {context_label}."
     )
 
-
+if score is None:
     st.write(
-
-        f"BTC × 45% = "
-        f"{btc_pct * 0.45:.6f}"
-
+        "Non ci sono dati sufficienti per formulare "
+        "un giudizio sul contesto."
     )
 
 
-    st.write(
+# ============================================================
+# SPIEGAZIONE DEL CONTESTO
+# ============================================================
 
-        f"Totale = "
-        f"{indice_ponderato:.6f}%"
+context_names = {
+    "NQ=F": "Nasdaq 100 Future",
+    "ES=F": "S&P 500 Future",
+    "BTC-USD": "Bitcoin",
+    "^VIX": "VIX",
+}
 
+explanation_parts = []
+
+for ticker in selected_context_tickers:
+
+    value = latest_context_values.get(ticker)
+
+    if pd.isna(value):
+        explanation_parts.append(
+            f"{context_names[ticker]}: dato non disponibile"
+        )
+        continue
+
+    label = context_component_label(
+        ticker,
+        value,
     )
 
-
-    st.write(
-        "### Dati passati al grafico"
+    explanation_parts.append(
+        f"{context_names[ticker]} {value:+.2f}% ({label})"
     )
 
+st.write(
+    " | ".join(explanation_parts)
+)
 
+
+# ============================================================
+# GRAFICO 2 â€” EVOLUZIONE DEL CONTESTO
+# ============================================================
+
+st.subheader("3. Evoluzione del contesto")
+
+if context_history.empty:
+    st.warning(
+        "Dati storici insufficienti per costruire "
+        "l'evoluzione del contesto."
+    )
+
+else:
+    graph2 = go.Figure()
+
+    graph2.add_trace(
+        go.Scatter(
+            x=context_history.index,
+            y=context_history.values,
+            mode="lines+markers+text",
+            name="Punteggio contesto",
+            text=[
+                (
+                    f"{value:+.0f} ({value / len(selected_context_tickers) * 100:+.0f}%)"
+                    if selected_context_tickers
+                    else f"{value:+.0f}"
+                )
+                for value in context_history.values
+            ],
+            textposition="top center",
+            textfont=dict(size=8),
+            hovertemplate=(
+                "Punteggio: %{y:+.0f}"
+                "<extra></extra>"
+            ),
+        )
+    )
+
+    graph2.add_hline(
+        y=0,
+        line_dash="dot",
+    )
+
+    graph2.update_layout(
+        xaxis_title="Ora",
+        yaxis_title="Punteggio contesto (equivalente %)",
+        yaxis=dict(
+            tickmode="array",
+            tickvals=list(
+                range(
+                    -len(selected_context_tickers),
+                    len(selected_context_tickers) + 1,
+                )
+            ) if selected_context_tickers else [0],
+        ),
+        hovermode="x unified",
+        margin=dict(
+            l=20,
+            r=20,
+            t=20,
+            b=20,
+        ),
+    )
+
+    st.plotly_chart(
+        graph2,
+        width="stretch",
+        config={
+            "displayModeBar": False,
+            "scrollZoom": False,
+        },
+    )
+
+    if len(context_history) >= 2:
+
+        previous_score = context_history.iloc[-2]
+        latest_score = context_history.iloc[-1]
+
+        if latest_score > previous_score:
+            st.info(
+                "Nell'ultima rilevazione il contesto e migliorato "
+                "rispetto alla rilevazione precedente."
+            )
+
+        elif latest_score < previous_score:
+            st.info(
+                "Nell'ultima rilevazione il contesto e peggiorato "
+                "rispetto alla rilevazione precedente."
+            )
+
+        else:
+            st.info(
+                "La linea del Grafico 2 rappresenta il punteggio algebrico "
+                "dei soli fattori selezionati.\n\n"
+                "Quindi non è un valore percentuale di mercato: indica solo "
+                "quanto è favorevole/sfavorevole il saldo dei fattori."
+            )
+
+
+# ============================================================
+# FATTORI DISPONIBILI
+# ============================================================
+
+st.markdown('<div class="fattori-disponibili">', unsafe_allow_html=True)
+
+with st.expander("Fattori disponibili", expanded=False):
+    market_rows = []
+
+    for ticker, info in INSTRUMENTS.items():
+        if info["category"] != "Mercato":
+            continue
+
+        market_rows.append(
+            {
+                "Strumento": info["name"],
+                "Ticker": ticker,
+                "Disponibile": "Si" if info["available"] else "No",
+                "Utilizzabile nel contesto": (
+                    "Si" if info["context"] else "No"
+                ),
+            }
+        )
+
+    st.markdown("### Mercato")
     st.dataframe(
-
-        history.tail(20),
-
-        use_container_width=True
-
+        pd.DataFrame(market_rows),
+        width="stretch",
+        hide_index=True,
     )
 
 
-# ============================================================
-# FINE
-# ============================================================
+    title_rows = []
 
-st.write("---")
+    for ticker, info in INSTRUMENTS.items():
+        if info["category"] != "Titoli":
+            continue
 
+        title_rows.append(
+            {
+                "Strumento": info["name"],
+                "Ticker": ticker,
+                "Disponibile": "Si" if info["available"] else "No",
+                "Utilizzabile nel contesto": (
+                    "Si" if info["context"] else "No"
+                ),
+            }
+        )
+
+    st.markdown("### Titoli")
+    st.dataframe(
+        pd.DataFrame(title_rows),
+        width="stretch",
+        hide_index=True,
+    )
+
+
+    three_x_rows = []
+
+    for ticker, info in INSTRUMENTS.items():
+        if info["category"] != "Strumenti 3x":
+            continue
+
+        three_x_rows.append(
+            {
+                "Strumento": info["name"],
+                "Ticker": "Da identificare",
+                "Disponibile": "Da collegare",
+                "Utilizzabile nel contesto": "No",
+            }
+        )
+
+    st.markdown("### Strumenti 3x")
+    st.dataframe(
+        pd.DataFrame(three_x_rows),
+        width="stretch",
+        hide_index=True,
+    )
+
+
+    # ============================================================
+
+
+# ============================================================
+# PIE' DI PAGINA
+# ============================================================
 
 st.caption(
     "Dashboard aggiornata automaticamente ogni 5 minuti."
 )
+
+
+
+
+
+
