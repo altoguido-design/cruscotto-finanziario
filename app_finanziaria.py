@@ -881,7 +881,7 @@ else:
                 name=INSTRUMENTS[ticker]["name"],
                 text=[f"{value:+.2f}%" for value in series.values],
                 textposition="top center",
-                textfont=dict(size=8),
+                textfont=dict(size=10, color="#222222"),
                 hovertemplate=(
                     f"{INSTRUMENTS[ticker]['name']}: "
                     "%{y:+.2f}%<extra></extra>"
@@ -897,7 +897,7 @@ else:
     graph1.update_layout(
         xaxis_title="Ora",
         yaxis_title="Variazione %",
-        hovermode="x unified",
+        hovermode=False,
         margin=dict(
             l=20,
             r=20,
@@ -910,6 +910,7 @@ else:
         graph1,
         width="stretch",
         config={
+            "staticPlot": True,
             "displayModeBar": False,
             "scrollZoom": False,
         },
@@ -1104,7 +1105,7 @@ else:
                 for value in context_history.values
             ],
             textposition="top center",
-            textfont=dict(size=8),
+            textfont=dict(size=10, color="#222222"),
             hovertemplate=(
                 "Punteggio: %{y:+.0f}"
                 "<extra></extra>"
@@ -1129,7 +1130,7 @@ else:
                 )
             ) if selected_context_tickers else [0],
         ),
-        hovermode="x unified",
+        hovermode=False,
         margin=dict(
             l=20,
             r=20,
@@ -1142,6 +1143,7 @@ else:
         graph2,
         width="stretch",
         config={
+            "staticPlot": True,
             "displayModeBar": False,
             "scrollZoom": False,
         },
@@ -1263,9 +1265,4 @@ with st.expander("Fattori disponibili", expanded=False):
 st.caption(
     "Dashboard aggiornata automaticamente ogni 5 minuti."
 )
-
-
-
-
-
 
