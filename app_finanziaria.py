@@ -27,24 +27,6 @@ st.title("Dashboard Finanziaria Real-Time")
 
 st.markdown("""
 <style>
-
-/* Compatta ulteriormente Fattori disponibili */
-h3 {
-    margin-top: 0.15rem !important;
-    margin-bottom: 0.03rem !important;
-    line-height: 1 !important;
-}
-
-div[data-testid="stDataFrame"] {
-    margin-top: -0.8rem !important;
-    margin-bottom: -0.05rem !important;
-}
-
-</style>
-""", unsafe_allow_html=True)
-
-st.markdown("""
-<style>
 h1 {
     font-size: 2rem !important;
     margin-top: -1rem !important;
@@ -191,34 +173,6 @@ INSTRUMENTS = {
         "category": "Titoli",
         "context": False,
         "available": True,
-    },
-    "MSTR_3X_LONG": {
-        "name": "MSTR 3x Long",
-        "category": "Strumenti 3x",
-        "context": False,
-        "available": False,
-        "ticker": None,
-    },
-    "MSTR_3X_SHORT": {
-        "name": "MSTR 3x Short",
-        "category": "Strumenti 3x",
-        "context": False,
-        "available": False,
-        "ticker": None,
-    },
-    "COIN_3X_LONG": {
-        "name": "COIN 3x Long",
-        "category": "Strumenti 3x",
-        "context": False,
-        "available": False,
-        "ticker": None,
-    },
-    "COIN_3X_SHORT": {
-        "name": "COIN 3x Short",
-        "category": "Strumenti 3x",
-        "context": False,
-        "available": False,
-        "ticker": None,
     },
 }
 
@@ -1176,93 +1130,15 @@ else:
 
 
 # ============================================================
-# FATTORI DISPONIBILI
-# ============================================================
-
-st.markdown('<div class="fattori-disponibili">', unsafe_allow_html=True)
-
-with st.expander("Fattori disponibili", expanded=False):
-    market_rows = []
-
-    for ticker, info in INSTRUMENTS.items():
-        if info["category"] != "Mercato":
-            continue
-
-        market_rows.append(
-            {
-                "Strumento": info["name"],
-                "Ticker": ticker,
-                "Disponibile": "Si" if info["available"] else "No",
-                "Utilizzabile nel contesto": (
-                    "Si" if info["context"] else "No"
-                ),
-            }
-        )
-
-    st.markdown("### Mercato")
-    st.dataframe(
-        pd.DataFrame(market_rows),
-        width="stretch",
-        hide_index=True,
-    )
-
-
-    title_rows = []
-
-    for ticker, info in INSTRUMENTS.items():
-        if info["category"] != "Titoli":
-            continue
-
-        title_rows.append(
-            {
-                "Strumento": info["name"],
-                "Ticker": ticker,
-                "Disponibile": "Si" if info["available"] else "No",
-                "Utilizzabile nel contesto": (
-                    "Si" if info["context"] else "No"
-                ),
-            }
-        )
-
-    st.markdown("### Titoli")
-    st.dataframe(
-        pd.DataFrame(title_rows),
-        width="stretch",
-        hide_index=True,
-    )
-
-
-    three_x_rows = []
-
-    for ticker, info in INSTRUMENTS.items():
-        if info["category"] != "Strumenti 3x":
-            continue
-
-        three_x_rows.append(
-            {
-                "Strumento": info["name"],
-                "Ticker": "Da identificare",
-                "Disponibile": "Da collegare",
-                "Utilizzabile nel contesto": "No",
-            }
-        )
-
-    st.markdown("### Strumenti 3x")
-    st.dataframe(
-        pd.DataFrame(three_x_rows),
-        width="stretch",
-        hide_index=True,
-    )
-
-
-    # ============================================================
-
-
-# ============================================================
 # PIE' DI PAGINA
 # ============================================================
 
 st.caption(
     "Dashboard aggiornata automaticamente ogni 5 minuti."
 )
+
+
+
+
+
 
